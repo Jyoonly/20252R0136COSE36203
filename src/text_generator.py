@@ -47,7 +47,7 @@ class FoodExplainer:
         self, 
         food_name: str, 
         food_info: Dict,
-        max_length: int = 250,
+        max_new_tokens: int = 200,
         temperature: float = 0.7
     ) -> str:
         """
@@ -56,7 +56,7 @@ class FoodExplainer:
         Args:
             food_name: English name of the food
             food_info: Dictionary with food information (from knowledge base)
-            max_length: Maximum length of generated text
+            max_new_tokens: Maximum number of new tokens to generate
             temperature: Sampling temperature
         
         Returns:
@@ -69,23 +69,45 @@ class FoodExplainer:
         try:
             outputs = self.generator(
                 prompt,
-                max_length=max_length,
+                max_new_tokens=max_new_tokens,
                 temperature=temperature,
                 do_sample=True,
                 top_p=0.9,
                 num_return_sequences=1,
-                pad_token_id=self.tokenizer.eos_token_id
+                pad_token_id=self.tokenizer.eos_token_id,
+                eos_token_id=self.tokenizer.eos_token_id,
+                repetition_penalty=1.1,
+                truncation=True
             )
             
             generated_text = outputs[0]['generated_text']
             
-            # Extract the response part (after the prompt)
-            if "Assistant:" in generated_text:
-                response = generated_text.split("Assistant:")[-1].strip()
-            else:
-                response = generated_text[len(prompt):].strip()
+            # Extract only the assistant's response
+            # The format is: <|system|>...<|user|>...<|assistant|>RESPONSE</s>
+            if '<|assistant|>' in generated_text:
+                # Split at <|assistant|> and take everything after it
+                parts = generated_text.split('<|assistant|>')
+                if len(parts) > 1:
+                    response = parts[-1].strip()
+                    # Remove any trailing </s> or special tokens
+                    response = response.split('</s>')[0].strip()
+                    # Remove any text after newline followed by <| (start of new turn)
+                    if '\n<|' in response:
+                        response = response.split('\n<|')[0].strip()
+                    return response
             
-            return response
+            # Fallback: try to extract after the prompt
+            if len(generated_text) > len(prompt):
+                response = generated_text[len(prompt):].strip()
+                # Clean up special tokens
+                response = response.split('</s>')[0].strip()
+                response = response.split('<|')[0].strip()
+                if response:
+                    return response
+            
+            # If extraction fails, fall back to template
+            print("Failed to extract response from LLM, using template")
+            return self._generate_template_explanation(food_name, food_info)
         
         except Exception as e:
             print(f"Error generating text: {e}")
@@ -103,19 +125,21 @@ class FoodExplainer:
         cultural_note = food_info.get('cultural_note', '')
         
         # Format ingredients
-        ingredients_str = ", ".join(ingredients) if ingredients else "traditional Korean ingredients"
+        ingredients_str = ", ".join(ingredients[:5]) if ingredients else "traditional Korean ingredients"
         
-        # Create conversational prompt
+        # Create prompt with context but let LLM generate the response
         prompt = f"""<|system|>
-You are a knowledgeable Korean food expert. Explain Korean dishes in a friendly, informative way.</s>
+You are a Korean food expert. Provide clear, informative, and engaging descriptions of Korean dishes in 2-3 paragraphs.</s>
 <|user|>
-Tell me about {food_name} ({korean_name}).</s>
+Tell me about {food_name} ({korean_name}). Here's some information about it:
+- Category: {category}
+- Description: {description}
+- Main ingredients: {ingredients_str}
+- Preparation: {cooking_method}
+- Cultural significance: {cultural_note}
+
+Explain this dish in a natural, conversational way.</s>
 <|assistant|>
-{food_name} ({korean_name}) is a {category.lower()}. {description}
-
-The dish is made with {ingredients_str}. {cooking_method}
-
-{cultural_note}</s>
 """
         
         return prompt
