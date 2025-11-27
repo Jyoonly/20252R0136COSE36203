@@ -70,7 +70,7 @@ python3 build_database.py
 
 ### 3. Run Demo
 
-We provide our pretrained weights in the `models.zip`.
+We provide our pretrained weights in the `models.zip`. You can download it [here](https://drive.google.com/file/d/137O6SXiedvBrykgA3cKU-EFryvqFeMiv/view?usp=sharing).
 
 ```bash
 # Interactive mode
