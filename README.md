@@ -51,19 +51,26 @@ hansik_clip/
 
 ## Quick Start
 
-### 1. Installation
+### 1. Installation and download dataset
 
+1. Install dependencies
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2. Build Knowledge Base
+2. Download dataset [here](https://aihub.or.kr/aihubdata/data/view.do?srchOptnCnd=OPTNCND001&currMenu=115&topMenu=100&searchKeyword=%ED%95%9C%EC%8B%9D&aihubDataSe=data&dataSetSn=79)
+
+### 2. (Optional) Build Knowledge Base
+
+Because we provide `food_knowledge_base.json`, you can skip this stage.
 
 ```bash
 python3 build_database.py
 ```
 
 ### 3. Run Demo
+
+We provide our pretrained weights in the `models.zip`.
 
 ```bash
 # Interactive mode
